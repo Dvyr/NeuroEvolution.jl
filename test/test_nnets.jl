@@ -1,0 +1,190 @@
+using Test
+
+include(joinpath(@__DIR__, "..", "src", "NNets", "NNets.jl"))
+
+@testset "NNets" begin
+    @testset "perceptron feed" begin
+        n1 = NNets.Neuron([1.0, 1.0], 0.0)
+        @test NNets.feed(n1, [1.0, 1.0]) == 1
+        @test NNets.feed(n1, [-1.0, -1.0]) == 0
+        @test NNets.feed(n1, [1.0, -1.0]) == 0
+
+        n2 = NNets.Neuron([2.0, -1.0], 1.0)
+        @test NNets.feed(n2, [1.0, 1.0]) == 1
+        @test NNets.feed(n2, [0.0, 0.0]) == 1
+        @test NNets.feed(n2, [0.0, 3.0]) == 0
+
+        n3 = NNets.Neuron([1.0, 2.0], -2.0)
+        @test NNets.feed(n3, [5.0, 2.0])  == 1
+	    @test NNets.feed(n3, [-5.0, 2.0]) == 0
+    end
+
+    @testset "AND gate" begin
+        n_and = NNets.Neuron([1.0, 1.0], -1.5)
+        @test NNets.feed(n_and, [0.0, 0.0]) == 0
+        @test NNets.feed(n_and, [0.0, 1.0]) == 0
+        @test NNets.feed(n_and, [1.0, 0.0]) == 0
+        @test NNets.feed(n_and, [1.0, 1.0]) == 1
+    end
+
+    @testset "OR gate" begin
+        n_or = NNets.Neuron([1.0, 1.0], -0.5)
+        @test NNets.feed(n_or, [0.0, 0.0]) == 0
+        @test NNets.feed(n_or, [0.0, 1.0]) == 1
+        @test NNets.feed(n_or, [1.0, 0.0]) == 1
+        @test NNets.feed(n_or, [1.0, 1.0]) == 1
+    end
+
+    @testset "NOR gate" begin
+        n_nor = NNets.Neuron([-1.0, -1.0], 0.5)
+        @test NNets.feed(n_nor, [0.0, 0.0]) == 1
+        @test NNets.feed(n_nor, [0.0, 1.0]) == 0
+        @test NNets.feed(n_nor, [1.0, 0.0]) == 0
+        @test NNets.feed(n_nor, [1.0, 1.0]) == 0
+    end
+
+    @testset "NOT gate" begin
+        n_not = NNets.Neuron([-1.0], 0.5)
+        @test NNets.feed(n_not, [0.0]) == 1
+        @test NNets.feed(n_not, [1.0]) == 0
+    end
+
+    @testset "Digital comparator" begin
+        @test NNets.digital_comparator(0.0, 0.0) == [0, 1, 0]
+        @test NNets.digital_comparator(0.0, 1.0) == [0, 0, 1]
+        @test NNets.digital_comparator(1.0, 0.0) == [1, 0, 0]
+        @test NNets.digital_comparator(1.0, 1.0) == [0, 1, 0]
+    end
+
+    @testset "train! updates parameters" begin
+        n = NNets.Neuron([0.2, -0.1], -0.5)
+        NNets.train!(n, [1.0, 0.0], 1.0, 0.1)
+        @test n.weights[1] ≈ 0.3
+        @test n.weights[2] ≈ -0.1
+        @test n.bias ≈ -0.4
+    end
+
+    @testset "train! keeps parameters when error is zero" begin
+        n = NNets.Neuron([1.0, 1.0], -0.5)
+        initial_weights = copy(n.weights)
+        initial_bias = n.bias
+        NNets.train!(n, [1.0, 0.0], 1.0, 0.1)
+        @test n.weights == initial_weights
+        @test n.bias == initial_bias
+    end
+
+    @testset "feed stores neuron output" begin
+        n_step = NNets.Neuron([1.0, 1.0], -0.5)
+        y_step = NNets.feed(n_step, [1.0, 0.0])
+        @test n_step.output == y_step
+
+        n_sig = NNets.sigmoid_neuron!([1.0, 1.0], -0.5)
+        y_sig = NNets.feed(n_sig, [1.0, 0.0])
+        @test n_sig.output == y_sig
+    end
+
+    @testset "train_neuron! returns average error history" begin
+        n = NNets.Neuron([0.0, 0.0], -1.0)
+        trained, avg_errors = NNets.train_neuron!(
+            n,
+            [[0.0, 0.0]],
+            [1.0],
+            3,
+            0.6;
+            return_average_errors_per_epoch = true,
+        )
+        @test trained === n
+        @test avg_errors == [1.0, 1.0, 0.0]
+    end
+
+    @testset "train_neuron! default return stays neuron-only" begin
+        n = NNets.Neuron([0.0, 0.0], -1.0)
+        result = NNets.train_neuron!(n, [[0.0, 0.0]], [1.0], 1, 0.1)
+        @test result === n
+    end
+
+    @testset "input validation" begin
+        n = NNets.Neuron([1.0, 2.0], 0.0)
+        @test_throws AssertionError NNets.feed(n, [1.0])
+    end
+
+    @testset "OR gate training with sigmoid neuron" begin
+        n_or = NNets.sigmoid_neuron!([-1.0, -1.0], 2.0)
+        NNets.train_neuron!(
+            n_or,
+            [[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]],
+            [0.0, 1.0, 1.0, 1.0],
+            10_000,
+            0.1,
+        )
+        @test NNets.feed(n_or, [0.0, 0.0]) < 0.1
+        @test NNets.feed(n_or, [0.0, 1.0]) > 0.9
+        @test NNets.feed(n_or, [1.0, 0.0]) > 0.9
+        @test NNets.feed(n_or, [1.0, 1.0]) > 0.9
+    end
+
+    @testset "Layer constructor links adjacent layers" begin
+        output_layer = NNets.Layer(1, 2)
+        hidden_layer = NNets.Layer(2, 2, output_layer)
+        @test hidden_layer.next_layer === output_layer
+        @test output_layer.previous_layer === hidden_layer
+        @test length(hidden_layer.neurons) == 2
+    end
+
+    @testset "Layer feed propagates to next layer" begin
+        first = NNets.Neuron([1.0, 0.0], 0.0)
+        second = NNets.Neuron([0.0, 1.0], 0.0)
+        output_neuron = NNets.Neuron([1.0, 1.0], -1.5)
+
+        output_layer = NNets.Layer{Float64}([output_neuron], nothing, nothing)
+        input_layer = NNets.Layer{Float64}([first, second], nothing, output_layer)
+        output_layer.previous_layer = input_layer
+
+        @test NNets.feed(input_layer, [0.0, 0.0]) == [0.0]
+        @test NNets.feed(input_layer, [1.0, 0.0]) == [0.0]
+        @test NNets.feed(input_layer, [0.0, 1.0]) == [0.0]
+        @test NNets.feed(input_layer, [1.0, 1.0]) == [1.0]
+    end
+
+    @testset "Layer constructor validates dimensions" begin
+        @test_throws AssertionError NNets.Layer(0, 2)
+        @test_throws AssertionError NNets.Layer(2, 0)
+    end
+
+    @testset "NeuralNet constructor builds linked layers" begin
+        net = NNets.NeuralNet(2, [3, 2]; output_count = 1)
+        l1 = net.root_layer
+        l2 = l1.next_layer
+        l3 = l2.next_layer
+
+        @test length(l1.neurons) == 3
+        @test length(l2.neurons) == 2
+        @test length(l3.neurons) == 1
+        @test l1.previous_layer === nothing
+        @test l2.previous_layer === l1
+        @test l3.previous_layer === l2
+        @test l3.next_layer === nothing
+        @test length(l1.neurons[1].weights) == 2
+        @test length(l2.neurons[1].weights) == 3
+        @test length(l3.neurons[1].weights) == 2
+    end
+
+    @testset "NeuralNet utility constructors" begin
+        net1 = NNets.one_hidden_layer_net(2, 4; output_count = 1)
+        @test length(net1.root_layer.neurons) == 4
+        @test length(net1.root_layer.next_layer.neurons) == 1
+
+        net2 = NNets.two_hidden_layer_net(2, 5, 3; output_count = 1)
+        @test length(net2.root_layer.neurons) == 5
+        @test length(net2.root_layer.next_layer.neurons) == 3
+        @test length(net2.root_layer.next_layer.next_layer.neurons) == 1
+    end
+
+    @testset "NeuralNet input validation" begin
+        @test_throws AssertionError NNets.NeuralNet(0, [2])
+        @test_throws AssertionError NNets.NeuralNet(2, Int[])
+        @test_throws AssertionError NNets.NeuralNet(2, [2, 0])
+        @test_throws AssertionError NNets.NeuralNet(2, [2]; output_count = 0)
+    end
+end
+

@@ -1,0 +1,12 @@
+name = "NeuroEvolution"
+uuid = "2b5e35a3-b4c8-45de-a0b2-0f75aa574ba4"
+version = "0.1.0"
+
+[compat]
+julia = "1.9"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

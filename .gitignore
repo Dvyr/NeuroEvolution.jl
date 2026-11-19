@@ -1,0 +1,25 @@
+# Julia
+.vscode/
+.idea/
+.julia/
+
+# Julia-generated files
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+Manifest.toml
+docs/build/
+
+# Build and cache artifacts
+build/
+dist/
+__precompiles__/
+*.so
+*.dll
+*.dylib
+*.o
+*.out
+
+# OS-specific files
+.DS_Store
+Thumbs.db
