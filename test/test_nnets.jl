@@ -58,10 +58,17 @@ include(joinpath(@__DIR__, "..", "src", "NNets", "NNets.jl"))
 
     @testset "train! updates parameters" begin
         n = NNets.Neuron([0.2, -0.1], -0.5)
-        NNets.train!(n, [1.0, 0.0], 1.0, 0.1)
+        trained = NNets.train!(n, [1.0, 0.0], 1.0, 0.1)
+        @test trained === n
         @test n.weights[1] ≈ 0.3
         @test n.weights[2] ≈ -0.1
         @test n.bias ≈ -0.4
+    end
+
+    @testset "train! validates neuron training arguments" begin
+        n = NNets.Neuron([1.0, 1.0], 0.0)
+        @test_throws ArgumentError NNets.train!(n, [1.0], 1.0)
+        @test_throws ArgumentError NNets.train!(n, [1.0, 1.0], 1.0, -0.1)
     end
 
     @testset "train! keeps parameters when error is zero" begin
@@ -185,6 +192,106 @@ include(joinpath(@__DIR__, "..", "src", "NNets", "NNets.jl"))
         @test_throws AssertionError NNets.NeuralNet(2, Int[])
         @test_throws AssertionError NNets.NeuralNet(2, [2, 0])
         @test_throws AssertionError NNets.NeuralNet(2, [2]; output_count = 0)
+    end
+
+    @testset "NeuralNet backpropagation" begin
+        net = NNets.NeuralNet(1, [1]; output_count = 1)
+        hidden_neuron = net.root_layer.neurons[1]
+        output_neuron = net.root_layer.next_layer.neurons[1]
+
+        hidden_neuron.weights[1] = 1.0
+        hidden_neuron.bias = 0.0
+        output_neuron.weights[1] = 1.0
+        output_neuron.bias = 0.0
+
+        NNets.feed(net, [1.0])
+        NNets.backpropagate(net, [0.0])
+
+        @test output_neuron.delta < 0.0
+        @test hidden_neuron.delta < 0.0
+
+        initial_hidden_weight = hidden_neuron.weights[1]
+        initial_output_weight = output_neuron.weights[1]
+        NNets.update_weights(net, [1.0], 0.1)
+
+        @test hidden_neuron.weights[1] != initial_hidden_weight
+        @test output_neuron.weights[1] != initial_output_weight
+
+        @test NNets.train!(net, [1.0], [0.0], 0.1) === net
+        @test isempty(net.errors)
+        @test isempty(net.accuracies)
+        @test_throws ArgumentError NNets.train!(net, [1.0], [0.0], -0.1)
+        @test_throws ArgumentError NNets.train!(net, [1.0], [0.0], Inf)
+        @test_throws ArgumentError NNets.train!(net, [1.0], Float64[])
+        @test_throws ArgumentError NNets.train!(net, Float64[], [0.0], 0.1)
+    end
+
+    @testset "NeuralNet prediction" begin
+        net = NNets.NeuralNet(1, [1]; output_count = 1)
+        hidden_neuron = net.root_layer.neurons[1]
+        output_neuron = net.root_layer.next_layer.neurons[1]
+        hidden_neuron.weights[1] = 2.0
+        hidden_neuron.bias = -0.5
+        output_neuron.weights[1] = 4.0
+        output_neuron.bias = -2.0
+
+        @test NNets.predict(net, [1.0]) == 1
+        @test NNets.predict(net, [0.0]) == 0
+
+        multi = NNets.NeuralNet(1, [1]; output_count = 2)
+        multi_hidden = multi.root_layer.neurons[1]
+        multi_hidden.weights[1] = 10.0
+        multi_hidden.bias = 0.0
+        first_output = multi.root_layer.next_layer.neurons[1]
+        second_output = multi.root_layer.next_layer.neurons[2]
+        first_output.weights[1] = -10.0
+        first_output.bias = 0.0
+        second_output.weights[1] = 10.0
+        second_output.bias = 0.0
+
+        @test NNets.predict(multi, [1.0]) == 1
+        @test_throws ArgumentError NNets.predict(multi, [1.0, 1.0])
+    end
+
+    @testset "NeuralNet plot validation" begin
+        net = NNets.NeuralNet(1, [1]; output_count = 1)
+        @test_throws ArgumentError NNets.nn_plot(net)
+
+        push!(net.errors, 0.2)
+        @test_throws ArgumentError NNets.nn_plot(net)
+
+        push!(net.accuracies, 0.8)
+        push!(net.accuracies, 0.9)
+        @test_throws ArgumentError NNets.nn_plot(net)
+
+        trained_net = NNets.NeuralNet(1, [1]; output_count = 1)
+        NNets.train!(trained_net, [[1.0]], [[0.0]], 1, 0.1)
+        @test_nowarn NNets.nn_plot(trained_net)
+    end
+
+    @testset "NeuralNet train! stores one metric per epoch" begin
+        net = NNets.NeuralNet(1, [1]; output_count = 1)
+        output = NNets.feed(net, [1.0])[1]
+        squared_error_1 = (0.0 - output)^2
+        squared_error_2 = (1.0 - output)^2
+        predicted_class = output >= 0.5 ? 1.0 : 0.0
+        accuracy_1 = predicted_class == 0.0 ? 1.0 : 0.0
+        accuracy_2 = predicted_class == 1.0 ? 1.0 : 0.0
+
+        NNets.train!(net, [[1.0]], [[0.0]], 1, 0.0)
+        @test net.errors[1] ≈ squared_error_1
+        @test net.accuracies[1] ≈ accuracy_1
+
+        NNets.train!(net, [[1.0], [1.0]], [[0.0], [1.0]], 1, 0.0)
+        @test net.errors[2] ≈ (squared_error_1 + squared_error_2) / 2
+        @test net.accuracies[2] ≈ (accuracy_1 + accuracy_2) / 2
+
+        scalar_net = NNets.NeuralNet(1, [1]; output_count = 1)
+        @test NNets.train!(scalar_net, [[0.0], [1.0]], [0.0, 1.0], 3, 0.1) === scalar_net
+        @test length(scalar_net.errors) == 3
+        @test length(scalar_net.accuracies) == 3
+        @test_throws ArgumentError NNets.train!(scalar_net, [[0.0]], [0.0], -1, 0.1)
+        @test_throws ArgumentError NNets.train!(scalar_net, Vector{Vector{Float64}}(), Float64[], 1, 0.1)
     end
 end
 

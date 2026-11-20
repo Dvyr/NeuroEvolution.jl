@@ -19,6 +19,19 @@ Neuroevolution in Julia* by Alexandre Bergel.
 - Small runnable examples for training and visualizing perceptrons
 - Tests demonstrating neuron behavior and network construction
 
+## Project progress
+
+Current development status:
+
+- ✅ Core neuron logic and perceptron learning are implemented.
+- ✅ Feed-forward neural network construction and backpropagation are implemented.
+- ✅ `train!` supports both single-step training and dataset/epoch training.
+- ✅ Epoch-level metrics (mean squared error and mean accuracy) are collected for plotting.
+- ✅ `predict` supports binary and multi-output classification use cases.
+- ✅ Example scripts cover perceptron, XOR, and binary-to-decimal demonstrations.
+- ✅ Automated tests are in place and actively expanded with new features.
+- 🚧 Genetic algorithm and broader neuroevolution workflows are planned for future iterations.
+
 ## Requirements
 
 - Julia 1.9 or newer
@@ -75,6 +88,14 @@ julia --project=. examples/perceptron_examples.jl
 
 The example trains sigmoid perceptrons and plots the training error. Plotting
 support requires the `Plots` package.
+
+An additional neural-network workflow example is available in
+`examples/neural_net_examples.jl`, including XOR and binary-to-decimal training
+with epoch-level plotting:
+
+```sh
+julia --project=. examples/neural_net_examples.jl
+```
 
 ## Running the tests
 

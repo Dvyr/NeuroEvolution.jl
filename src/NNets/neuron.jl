@@ -97,22 +97,33 @@ function digital_comparator(a::Float64, b::Float64)
 end
 
 function train!(
-	n::Neuron,
-	inputs::Vector{T},
-	desired_output::K,
-    learning_rate = 0.01
-) where T <: Number where K <: Number
-    output = feed(n, inputs)
+    neuron::Neuron{T},
+    inputs::AbstractVector,
+    desired_output::Number,
+    learning_rate::Real = 0.01,
+) where {T<:Real}
+    length(neuron.weights) == length(inputs) ||
+        throw(ArgumentError("Inputs and weights should have the same size"))
+    learning_rate >= zero(learning_rate) ||
+        throw(ArgumentError("learning_rate must be non-negative"))
+
+    converted_inputs = Vector{T}(inputs)
+    output = feed(neuron, converted_inputs)
     computed_error = desired_output - output
-    if n.derivative_activation_function === nothing
-        delta = computed_error
+
+    if neuron.derivative_activation_function === nothing
+        neuron.delta = computed_error
     else
-        delta = computed_error * n.derivative_activation_function(output)
+        neuron.delta = computed_error *
+                        neuron.derivative_activation_function(output)
     end
-    for (index, input) in enumerate(inputs)
-        n.weights[index] += learning_rate * delta * input
+
+    for (index, input) in enumerate(converted_inputs)
+        neuron.weights[index] = neuron.weights[index] +
+                                learning_rate * neuron.delta * input
     end
-    n.bias += learning_rate * delta
+    neuron.bias = neuron.bias + learning_rate * neuron.delta
+    return neuron
 end
 
 """
@@ -137,14 +148,17 @@ end
 """
 function train_neuron!(
     neuron::Neuron{Float64},
-    inputs::Vector{Vector{Float64}}, 
+    inputs::Vector{Vector{Float64}},
     desired_outputs::Vector{Float64},
     no_epochs::Int = 100,
     learning_rate::Float64 = 0.1;
     return_average_errors_per_epoch::Bool = false,
-    )
-    @assert length(inputs) == length(desired_outputs) 
-    "Number of input sets must match number of desired outputs"
+)
+    length(inputs) == length(desired_outputs) ||
+        throw(ArgumentError("Number of input sets must match number of desired outputs"))
+    no_epochs >= 0 || throw(ArgumentError("no_epochs must be non-negative"))
+    learning_rate >= 0.0 || throw(ArgumentError("learning_rate must be non-negative"))
+
     average_errors_per_epoch = Float64[]
     for _ in 1:no_epochs
         total_error = 0.0
