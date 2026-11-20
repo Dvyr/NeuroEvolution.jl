@@ -17,6 +17,7 @@ Neuroevolution in Julia* by Alexandre Bergel.
 - Configurable one-layer and two-layer neural networks
 - Digital logic examples, including AND, OR, NOR, NOT, and a digital comparator
 - Small runnable examples for training and visualizing perceptrons
+- Neural network persistence with binary and JSON save/load helpers
 - Tests demonstrating neuron behavior and network construction
 
 ## Project progress

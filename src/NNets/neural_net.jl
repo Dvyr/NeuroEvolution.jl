@@ -1,5 +1,7 @@
 
+using JSON
 using Plots: plot, plot!, twinx
+using Serialization: deserialize, serialize
 
 mutable struct Layer{T<:Real}
     neurons::Vector{Neuron{T}}
@@ -166,6 +168,31 @@ end
 
 function _input_size(net::NeuralNet)
     return length(net.root_layer.neurons[1].weights)
+end
+
+function _output_size(net::NeuralNet)
+    return length(output_layer(net).neurons)
+end
+
+function _hidden_layers(net::NeuralNet)
+    hidden_sizes = Int[]
+    layer = net.root_layer
+    while layer.next_layer !== nothing
+        push!(hidden_sizes, length(layer.neurons))
+        layer = layer.next_layer
+    end
+    return hidden_sizes
+end
+
+function _layer_sequence(net::NeuralNet)
+    sequence = typeof(net.root_layer)[]
+    layer = net.root_layer
+    while true
+        push!(sequence, layer)
+        layer.next_layer === nothing && break
+        layer = layer.next_layer
+    end
+    return sequence
 end
 
 function _to_typed_vector(::Type{T}, values::AbstractVector) where {T<:Real}
@@ -399,4 +426,111 @@ function nn_plot(net::NeuralNet)
         y_guidefontcolor = :red,
         ylims = (0, 1),
     )
+end
+
+# A function for saving the trained neural network to a file
+function save_nn(net::NeuralNet, filename::AbstractString)
+    open(filename, "w") do io
+        serialize(io, net)
+    end
+end
+
+# A function for loading a trained neural network from a file
+function load_nn(filename::AbstractString)
+    open(filename, "r") do io
+        return deserialize(io)
+    end
+end
+
+# A function for saving the trained neural network to a JSON file.
+function save_nn_json(net::NeuralNet, filename::AbstractString)
+    layers = [
+        Dict(
+            "weights" => [Float64.(neuron.weights) for neuron in layer.neurons],
+            "biases" => Float64[neuron.bias for neuron in layer.neurons],
+        ) for layer in _layer_sequence(net)
+    ]
+
+    data = Dict{String,Any}(
+        "input_size" => _input_size(net),
+        "hidden_layers" => _hidden_layers(net),
+        "output_size" => _output_size(net),
+        "errors" => copy(net.errors),
+        "accuracies" => copy(net.accuracies),
+        "layers" => layers,
+    )
+
+    open(filename, "w") do io
+        JSON.print(io, data, 2)
+    end
+    return nothing
+end
+
+# A function for loading a trained neural network from a JSON file.
+function load_nn_json(filename::AbstractString)
+    data = JSON.parsefile(filename)
+    input_size = Int(data["input_size"])
+    hidden_layers = Int.(data["hidden_layers"])
+    output_size = Int(data["output_size"])
+    layers_data = data["layers"]
+
+    net = NeuralNet(Float64, input_size, hidden_layers; output_count = output_size)
+    layers = _layer_sequence(net)
+    length(layers_data) == length(layers) ||
+        throw(ArgumentError("Layer count in file does not match reconstructed network"))
+
+    for (layer_data, layer) in zip(layers_data, layers)
+        weights_data = layer_data["weights"]
+        biases_data = layer_data["biases"]
+        length(weights_data) == length(layer.neurons) ||
+            throw(ArgumentError("Neuron count does not match layer definition"))
+        length(biases_data) == length(layer.neurons) ||
+            throw(ArgumentError("Bias count does not match layer definition"))
+
+        for (neuron, serialized_weights, serialized_bias) in zip(layer.neurons, weights_data, biases_data)
+            length(serialized_weights) == length(neuron.weights) ||
+                throw(ArgumentError("Weight count does not match neuron definition"))
+            neuron.weights .= Float64.(serialized_weights)
+            neuron.bias = Float64(serialized_bias)
+        end
+    end
+
+    net.errors = haskey(data, "errors") ? Float64.(data["errors"]) : Float64[]
+    net.accuracies = haskey(data, "accuracies") ? Float64.(data["accuracies"]) : Float64[]
+    length(net.errors) == length(net.accuracies) ||
+        throw(ArgumentError("errors and accuracies in JSON must have the same length"))
+    return net
+end
+
+# A function for printing the structure and parameters of a neural network
+function print_nn(net::NeuralNet)
+    println("Neural Network Structure:")
+    println("Input size: ", _input_size(net))
+    println("Output size: ", _output_size(net))
+    println("Hidden layers: ", _hidden_layers(net))
+
+    layer = net.root_layer
+    layer_index = 1
+    while true
+        weights = [copy(neuron.weights) for neuron in layer.neurons]
+        biases = [neuron.bias for neuron in layer.neurons]
+        println("Layer ", layer_index, " size: ", length(layer.neurons))
+        println("  Weights: ", weights)
+        println("  Biases: ", biases)
+
+        layer.next_layer === nothing && break
+        layer = layer.next_layer
+        layer_index += 1
+    end
+end
+
+# Print a short summary of the neural network structure
+function print_nn_summary(net::NeuralNet)
+    hidden_layer_sizes = _hidden_layers(net)
+    println("Neural Network Summary:")
+    println("Input size: ", _input_size(net))
+    println("Output size: ", _output_size(net))
+    println("Hidden layers: ", length(hidden_layer_sizes))
+    println("Hidden layer sizes: ", hidden_layer_sizes)
+    println("Total layers: ", length(_layer_sequence(net)))
 end

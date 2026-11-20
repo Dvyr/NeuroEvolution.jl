@@ -293,5 +293,124 @@ include(joinpath(@__DIR__, "..", "src", "NNets", "NNets.jl"))
         @test_throws ArgumentError NNets.train!(scalar_net, [[0.0]], [0.0], -1, 0.1)
         @test_throws ArgumentError NNets.train!(scalar_net, Vector{Vector{Float64}}(), Float64[], 1, 0.1)
     end
+
+    @testset "NeuralNet save/load" begin
+        net = NNets.NeuralNet(2, [2]; output_count = 2)
+        hidden_1 = net.root_layer.neurons[1]
+        hidden_2 = net.root_layer.neurons[2]
+        output_1 = net.root_layer.next_layer.neurons[1]
+        output_2 = net.root_layer.next_layer.neurons[2]
+
+        hidden_1.weights .= [1.0, -1.0]
+        hidden_1.bias = 0.25
+        hidden_2.weights .= [0.5, 0.5]
+        hidden_2.bias = -0.25
+        output_1.weights .= [2.0, -2.0]
+        output_1.bias = 0.1
+        output_2.weights .= [-2.0, 2.0]
+        output_2.bias = -0.1
+
+        NNets.train!(net, [[0.0, 1.0], [1.0, 0.0]], [[1.0, 0.0], [0.0, 1.0]], 2, 0.05)
+        probe_input = [1.0, 0.0]
+        expected_feed = NNets.feed(net, probe_input)
+        expected_predict = NNets.predict(net, probe_input)
+
+        mktempdir() do dir
+            filename = joinpath(dir, "saved_network.bin")
+            NNets.save_nn(net, filename)
+            loaded = NNets.load_nn(filename)
+
+            @test loaded isa NNets.NeuralNet
+            @test loaded !== net
+            @test NNets.feed(loaded, probe_input) == expected_feed
+            @test NNets.predict(loaded, probe_input) == expected_predict
+            @test loaded.errors == net.errors
+            @test loaded.accuracies == net.accuracies
+
+            loaded.root_layer.neurons[1].weights[1] += 1.0
+            @test loaded.root_layer.neurons[1].weights[1] != net.root_layer.neurons[1].weights[1]
+        end
+
+        @test_throws SystemError NNets.load_nn(joinpath(pwd(), "does_not_exist.nn"))
+    end
+
+    @testset "NeuralNet save/load JSON" begin
+        net = NNets.NeuralNet(2, [2]; output_count = 2)
+        hidden_1 = net.root_layer.neurons[1]
+        hidden_2 = net.root_layer.neurons[2]
+        output_1 = net.root_layer.next_layer.neurons[1]
+        output_2 = net.root_layer.next_layer.neurons[2]
+
+        hidden_1.weights .= [0.3, -0.4]
+        hidden_1.bias = 0.15
+        hidden_2.weights .= [0.7, 0.2]
+        hidden_2.bias = -0.35
+        output_1.weights .= [1.2, -0.7]
+        output_1.bias = 0.05
+        output_2.weights .= [-1.2, 0.7]
+        output_2.bias = -0.05
+        net.errors = [0.5, 0.3]
+        net.accuracies = [0.25, 0.75]
+
+        probe_input = [1.0, 0.0]
+        expected_feed = NNets.feed(net, probe_input)
+        expected_predict = NNets.predict(net, probe_input)
+
+        mktempdir() do dir
+            filename = joinpath(dir, "saved_network.json")
+            NNets.save_nn_json(net, filename)
+            loaded = NNets.load_nn_json(filename)
+
+            @test loaded isa NNets.NeuralNet
+            @test loaded !== net
+            @test NNets.feed(loaded, probe_input) == expected_feed
+            @test NNets.predict(loaded, probe_input) == expected_predict
+            @test loaded.errors == net.errors
+            @test loaded.accuracies == net.accuracies
+
+            json_text = read(filename, String)
+            @test occursin("\"input_size\": 2", json_text)
+            @test occursin("\"layers\"", json_text)
+        end
+
+        @test_throws SystemError NNets.load_nn_json(joinpath(pwd(), "does_not_exist.json"))
+    end
+
+    @testset "NeuralNet print function" begin
+        net = NNets.NeuralNet(2, [3, 2]; output_count = 1)
+        text = mktemp() do path, io
+            redirect_stdout(io) do
+                NNets.print_nn(net)
+            end
+            close(io)
+            read(path, String)
+        end
+
+        @test occursin("Neural Network Structure:", text)
+        @test occursin("Input size: 2", text)
+        @test occursin("Output size: 1", text)
+        @test occursin("Hidden layers: [3, 2]", text)
+        @test occursin("Layer 1 size: 3", text)
+        @test occursin("Layer 2 size: 2", text)
+        @test occursin("Layer 3 size: 1", text)
+    end
+
+    @testset "NeuralNet print summary function" begin
+        net = NNets.NeuralNet(2, [3, 2]; output_count = 1)
+        text = mktemp() do path, io
+            redirect_stdout(io) do
+                NNets.print_nn_summary(net)
+            end
+            close(io)
+            read(path, String)
+        end
+
+        @test occursin("Neural Network Summary:", text)
+        @test occursin("Input size: 2", text)
+        @test occursin("Output size: 1", text)
+        @test occursin("Hidden layers: 2", text)
+        @test occursin("Hidden layer sizes: [3, 2]", text)
+        @test occursin("Total layers: 3", text)
+    end
 end
 

@@ -51,4 +51,30 @@ println("After training, prediction for [0,1,1] is: ", NN.predict(b2d_net, [0.0,
 println("After training, prediction for [1,1,1] is: ", NN.predict(b2d_net, [1.0, 1.0, 1.0]))  # Return 7 (Binary to Decimal output)
 println("After training, prediction for [0,0,0] is: ", NN.predict(b2d_net, [0.0, 0.0, 0.0]))  # Return 0 (Binary to Decimal output)
 
+
+
+## Plot the learning curves
 NN.nn_plot(b2d_net)
+
+## Print the neural network structure
+NN.print_nn(b2d_net)
+
+## Save/load examples
+# Save and load the neural network
+NN.save_nn(b2d_net, "b2d_net.jls")
+loaded_b2d_net = NN.load_nn("b2d_net.jls")
+println("Loaded network prediction for [1,0,1] is: ", NN.predict(loaded_b2d_net, [1.0, 0.0, 1.0]))  # Return 5 (Binary to Decimal output)
+println("Loaded network prediction for [0,1,1] is: ", NN.predict(loaded_b2d_net, [0.0, 1.0, 1.0]))  # Return 3 (Binary to Decimal output)
+println("Loaded network prediction for [1,1,1] is: ", NN.predict(loaded_b2d_net, [1.0, 1.0, 1.0]))  # Return 7 (Binary to Decimal output)
+println("Loaded network prediction for [0,0,0] is: ", NN.predict(loaded_b2d_net, [0.0, 0.0, 0.0]))  # Return 0 (Binary to Decimal output)
+
+# Save and load network in JSON format
+NN.save_nn_json(b2d_net, "b2d_net.json")
+loaded_b2d_net_json = NN.load_nn_json("b2d_net.json")
+println("Loaded JSON network prediction for [1,0,1] is: ", NN.predict(loaded_b2d_net_json, [1.0, 0.0, 1.0]))  # Return 5 (Binary to Decimal output)
+println("Loaded JSON network prediction for [0,1,1] is: ", NN.predict(loaded_b2d_net_json, [0.0, 1.0, 1.0]))  # Return 3 (Binary to Decimal output)
+println("Loaded JSON network prediction for [1,1,1] is: ", NN.predict(loaded_b2d_net_json, [1.0, 1.0, 1.0]))  # Return 7 (Binary to Decimal output)
+println("Loaded JSON network prediction for [0,0,0] is: ", NN.predict(loaded_b2d_net_json, [0.0, 0.0, 0.0]))  # Return 0 (Binary to Decimal output)
+
+## Print NN summary
+NN.print_nn_summary(b2d_net)
