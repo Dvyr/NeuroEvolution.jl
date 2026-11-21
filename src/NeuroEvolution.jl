@@ -1,8 +1,11 @@
 module NeuroEvolution
 
 include("NNets/NNets.jl")
+include("GeneticAlgorithm/GeneticAlgorithm.jl")
 
 using .NNets
+using .GeneticAlgorithm
+
 
 export Neuron,
     feed,
@@ -15,4 +18,11 @@ export Neuron,
     predict,
     int_to_one_hot,
     nn_plot
+
+export 
+    Ent,
+    build_ent,
+    compute_fitness
+
+    
 end
