@@ -93,6 +93,45 @@ function mutate!(op::MutationOperation, ent::Ent, gene_factory)
     end
 end
 
+# UInt8 version of population type for efficiency 
+"""
+function mutate_uint8!(
+    genome,
+    alphabet,
+    mutation_rate
+    )
+    alphabet created by collect(codeunits(string))
+Mutate a UInt8 genome in-place using the given alphabet and mutation rate.
+"""
+function mutate_uint8!(
+    genome::Vector{UInt8},
+    alphabet::Vector{UInt8},
+    mutation_rate::Float64
+)
+    for i in eachindex(genome)
+        if rand() < mutation_rate
+            genome[i] = rand(alphabet)
+        end
+    end
+end
+
+function crossover_uint8(
+    parent1::Vector{UInt8},
+    parent2::Vector{UInt8}
+)
+    length(parent1) == length(parent2) ||
+        throw(ArgumentError("Parents must have genomes of equal length"))
+    n = length(parent1)
+    point = rand(1:n-1)
+
+    child = similar(parent1)
+
+    child[1:point] .= parent1[1:point]
+    child[point+1:end] .= parent2[point+1:end]
+
+    return child
+end
+
 function apply_mutation(op::MutationOperation, ent::Ent, gene_factory)::Ent
     return mutate(op, ent, gene_factory)
 end

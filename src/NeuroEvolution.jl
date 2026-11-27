@@ -17,12 +17,20 @@ export Neuron,
     isclose,
     predict,
     int_to_one_hot,
-    nn_plot
+    nn_plot,
 
-export 
     Ent,
-    build_ent,
-    compute_fitness
+    GenomeFactory,
+    generate_genome,
+    generate_population,
+    generate_ent,
+    compute_fitness!,
+    best_worst_ent,
+    generate_population,
+    TournamentSelection,
+    select_parent,
+    mutate_uint8!,
+    crossover_uint8
 
     
 end

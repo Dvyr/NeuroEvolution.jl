@@ -1,19 +1,14 @@
 
 """
-    generate_population(pop_size, genome_size, gene_factory)
+    generate_population(pop_size, gene_factory)
 
-Generate a population of entities by repeatedly calling [`build_ent`] with
-`genome_size` and `gene_factory`.
+Generate a population of entities by repeatedly calling [`generate_ent`] with
+`gene_factory`.
 """
-function generate_population(pop_size::Integer, genome_size::Integer, gene_factory)
+function generate_population(pop_size::Integer, gene_factory::GenomeFactory)
     pop_size >= 0 || throw(ArgumentError("pop_size must be non-negative"))
-    genome_size >= 0 || throw(ArgumentError("genome_size must be non-negative"))
 
-    population = Vector{Ent{Any}}(undef, pop_size)
-    for i in eachindex(population)
-        population[i] = build_ent(genome_size, gene_factory)
-    end
-    return population
+    return [generate_ent(gene_factory) for _ in 1:pop_size]
 end
 
 # Parent selection
@@ -31,11 +26,20 @@ end
 # Select an individual from a `population` using the `fitness function`.
 # Individuals are compared using the `compare_fitness` and the parameters of the selection
 # are carried out in `selection`.
+"""
+    select_parent(
+        selection::TournamentSelection, 
+        population::AbstractVector{<:Ent}, 
+        fitness::Function, 
+        compare_fitness::Function
+)
+
+TBW
+"""
 function select_parent(
     selection::TournamentSelection, 
     population::AbstractVector{<:Ent}, 
-    fitness::Function, 
-    compare_fitness::Function
+    fitness::Function
 )
     isempty(population) &&
         throw(ArgumentError("population must not be empty"))
@@ -45,10 +49,7 @@ function select_parent(
     for _ in 1:selection.tournament_size
         candidate = population[rand(1:population_size)]
         if best === nothing ||
-            compare_fitness(
-                compute_fitness(candidate, fitness),
-                compute_fitness(best, fitness),
-            )
+            compute_fitness!(candidate, fitness) > compute_fitness!(best, fitness)
             best = candidate
         end
     end
@@ -112,12 +113,52 @@ function build_new_population(
 
     # step 2: fill the rest of the new population
     for i in (elite_count + 1):length(new_population)
-        parent1 = select_parent(selection, current_population, fitness, compare_fitness)
-        parent2 = select_parent(selection, current_population, fitness, compare_fitness)
+        parent1 = select_parent(selection, current_population, fitness)
+        parent2 = select_parent(selection, current_population, fitness)
         child = apply_crossover(crossover, parent1, parent2)
         child = apply_mutation(mutation, child, gene_factory)
         new_population[i] = child
     end
     return new_population
+end
+
+function best_individual(
+    population::AbstractVector{<:Ent},
+    fitness::Function,
+    compare_fitness::Function
+)
+    isempty(population) &&
+        throw(ArgumentError("population must not be empty"))
+
+    best = population[1]
+    for candidate in population[2:end]
+        if compare_fitness(
+            compute_fitness(candidate, fitness),
+            compute_fitness(best, fitness),
+        )
+            best = candidate
+        end
+    end
+    return best
+end
+
+function worst_individual(
+    population::AbstractVector{<:Ent},
+    fitness::Function,
+    compare_fitness::Function
+)
+    isempty(population) &&
+        throw(ArgumentError("population must not be empty"))
+
+    worst = population[1]
+    for candidate in population[2:end]
+        if !compare_fitness(
+            compute_fitness(candidate, fitness),
+            compute_fitness(worst, fitness),
+        )
+            worst = candidate
+        end
+    end
+    return worst
 end
 

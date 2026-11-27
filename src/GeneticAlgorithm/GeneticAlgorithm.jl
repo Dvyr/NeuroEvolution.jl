@@ -1,16 +1,26 @@
 module GeneticAlgorithm
 
+using Random
+
 include("entity.jl")
 include("genetic_operations.jl")
 include("population.jl")
+include("evolution.jl")
 
 export Ent,
-    build_ent,
-    compute_fitness,
-    is_better,
+    GenomeFactory,
+    generate_genome,
+    generate_population,
+    generate_ent,
+    compute_fitness!,
+    best_worst_ent,
     generate_population,
     TournamentSelection,
     select_parent,
+    mutate_uint8!,
+    crossover_uint8
+
+    #= ,
     build_new_population,
     GACrossover,
     GAMutation,
@@ -20,6 +30,8 @@ export Ent,
     apply_crossover,
     apply_mutation,
     mutate,
-    mutate!
+    mutate!,
+    GALog,
+    evolve =#
 
 end
